@@ -4,6 +4,7 @@ from dotenv import load_dotenv
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.responses import JSONResponse
 import httpx
+import uvicorn
 
 # Load .env variables
 load_dotenv()
@@ -130,3 +131,8 @@ async def get_usage(api_key: str):
     except Exception as e:
         print(f"Error in /usage: {e}")
         return {"error": "Contact the owner"}
+
+# Run server continuously (Render ready)
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 8000))  # Render dynamically sets the port
+    uvicorn.run(app, host="0.0.0.0", port=port)
