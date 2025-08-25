@@ -3,6 +3,7 @@ import json
 from dotenv import load_dotenv
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.responses import JSONResponse
+from fastapi.middleware.cors import CORSMiddleware  # NEW
 import httpx
 import uvicorn
 
@@ -34,6 +35,21 @@ print(f"API Key: {USER_API}")
 print("API activated successfully ✅")
 
 app = FastAPI(title="Local API Server")
+
+# NEW: CORS — allow your dev origins (add prod origin later)
+ALLOWED_ORIGINS = [
+    "http://127.0.0.1:5500",
+    "http://localhost:5500",
+    "http://localhost:3000",
+]
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=ALLOWED_ORIGINS,      # for quick dev: use ["*"]
+    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type"],
+    allow_credentials=False,            # you’re not using cookies
+    max_age=86400
+)
 
 # Helper functions
 def save_history():
@@ -78,7 +94,7 @@ async def local_api(request: Request):
         # Async request to provider API
         async with httpx.AsyncClient(timeout=30) as client:
             response = await client.post(
-                f"{PROVIDER_BASE_URL}/chat/completions",
+                f"{PROVIDER_BASE_URL.rstrip('/')}/chat/completions",  # rstrip safety
                 headers={
                     "Authorization": f"Bearer {PROVIDER_API_KEY}",
                     "Content-Type": "application/json"
@@ -106,6 +122,8 @@ async def local_api(request: Request):
 
         return {"reply": reply_text, "usage": usage}
 
+    except HTTPException:
+        raise
     except Exception as e:
         print(f"Error in /localAPI: {e}")
         return {"error": "Contact the owner"}
@@ -117,6 +135,8 @@ async def get_history(api_key: str):
         if api_key != USER_API:
             raise HTTPException(status_code=401, detail="Invalid API key")
         return {"conversation_history": conversation_history.get(USER_API, [])}
+    except HTTPException:
+        raise
     except Exception as e:
         print(f"Error in /history: {e}")
         return {"error": "Contact the owner"}
@@ -128,11 +148,13 @@ async def get_usage(api_key: str):
         if api_key != USER_API:
             raise HTTPException(status_code=401, detail="Invalid API key")
         return {"usage": usage_data}
+    except HTTPException:
+        raise
     except Exception as e:
         print(f"Error in /usage: {e}")
         return {"error": "Contact the owner"}
 
-# Run server continuously (Render ready)
+# Run server continuously (local dev)
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 8000))  # Render dynamically sets the port
+    port = int(os.environ.get("PORT", 8000))
     uvicorn.run(app, host="0.0.0.0", port=port)
